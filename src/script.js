@@ -6,7 +6,178 @@ const MAX_HP = 100;
 const MIN_SPEED = 3;
 const MAX_SPEED = 12;
 const GRAVITY = 0.6;
-const GROUND_Y = GAME_HEIGHT - 50;
+const BASE_GROUND_Y = GAME_HEIGHT - 50;
+
+class TerrainSegment {
+    constructor(type, startX, startY, length, isHole = false) {
+        this.type = type;
+        this.x = startX;
+        this.startY = startY;
+        this.length = length;
+        this.isHole = isHole;
+        this.endY = startY;
+
+        if (type === 'slope_up') {
+            this.endY = startY - 80;
+        } else if (type === 'slope_down') {
+            this.endY = startY + 80;
+        }
+    }
+
+    getYAt(targetX) {
+        if (targetX <= this.x) return this.startY;
+        if (targetX >= this.x + this.length) return this.endY;
+        const progress = (targetX - this.x) / this.length;
+        return this.startY + (this.endY - this.startY) * progress;
+    }
+}
+
+class TerrainManager {
+    constructor() {
+        this.segments = [];
+        this.lastX = 0;
+        this.lastY = BASE_GROUND_Y;
+        this.addSegment('flat', GAME_WIDTH * 2);
+    }
+
+    addSegment(type, length) {
+        let isHole = type === 'hole';
+        let segment = new TerrainSegment(type, this.lastX, this.lastY, length, isHole);
+        this.segments.push(segment);
+        this.lastX += length;
+        if (!isHole) {
+            this.lastY = segment.endY;
+        }
+    }
+
+    update(speed) {
+        for (let seg of this.segments) {
+            seg.x -= speed;
+        }
+        this.lastX -= speed;
+
+        if (this.segments.length > 0 && this.segments[0].x + this.segments[0].length < -200) {
+            this.segments.shift();
+        }
+
+        while (this.lastX < GAME_WIDTH + 800) {
+            this.generateNextSegment();
+        }
+    }
+
+    generateNextSegment() {
+        const rand = Math.random();
+        let type = 'flat';
+        let length = 200 + Math.random() * 400;
+
+        let lastType = this.segments[this.segments.length - 1].type;
+
+        if (lastType === 'hole') {
+            type = 'flat';
+            length = 300 + Math.random() * 300;
+        } else if (lastType === 'slope_up' || lastType === 'slope_down') {
+            type = 'flat';
+            length = 300 + Math.random() * 300;
+        } else {
+            if (rand < 0.25) type = 'slope_up';
+            else if (rand < 0.5) type = 'slope_down';
+            else if (rand < 0.65) {
+                type = 'hole';
+                length = 130 + Math.random() * 70;
+            }
+        }
+
+        if (type === 'slope_up' && this.lastY < 180) type = 'slope_down';
+        if (type === 'slope_down' && this.lastY > GAME_HEIGHT - 120) type = 'slope_up';
+
+        this.addSegment(type, length);
+    }
+
+    getGroundY(x) {
+        for (let seg of this.segments) {
+            if (x >= seg.x && x <= seg.x + seg.length) {
+                return seg.isHole ? GAME_HEIGHT + 200 : seg.getYAt(x);
+            }
+        }
+        return GAME_HEIGHT + 200;
+    }
+
+    getAirY(x) {
+        for (let seg of this.segments) {
+            if (x >= seg.x && x <= seg.x + seg.length) {
+                return seg.getYAt(x);
+            }
+        }
+        return BASE_GROUND_Y;
+    }
+
+    getAngleAt(x) {
+        for (let seg of this.segments) {
+            if (x >= seg.x && x <= seg.x + seg.length) {
+                if (seg.isHole) return 0;
+                return Math.atan2(seg.endY - seg.startY, seg.length);
+            }
+        }
+        return 0;
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        let started = false;
+
+        for (let seg of this.segments) {
+            if (seg.isHole) {
+                if (started) {
+                    ctx.lineTo(seg.x, GAME_HEIGHT);
+                    ctx.fill();
+                    started = false;
+                }
+            } else {
+                if (!started) {
+                    ctx.beginPath();
+                    ctx.moveTo(seg.x, GAME_HEIGHT);
+                    ctx.lineTo(seg.x, seg.startY);
+                    started = true;
+                } else {
+                    ctx.lineTo(seg.x, seg.startY);
+                }
+                ctx.lineTo(seg.x + seg.length, seg.endY);
+            }
+        }
+
+        if (started) {
+            let lastSeg = this.segments[this.segments.length - 1];
+            ctx.lineTo(lastSeg.x + lastSeg.length, GAME_HEIGHT);
+            ctx.fill();
+        }
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 10;
+
+        ctx.beginPath();
+        let first = true;
+        for (let seg of this.segments) {
+            if (seg.isHole) {
+                ctx.stroke();
+                ctx.beginPath();
+                first = true;
+            } else {
+                if (first) {
+                    ctx.moveTo(seg.x, seg.startY);
+                    first = false;
+                } else {
+                    ctx.lineTo(seg.x, seg.startY);
+                }
+                ctx.lineTo(seg.x + seg.length, seg.endY);
+            }
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    }
+}
 
 // Elements
 const canvas = document.getElementById('gameCanvas');
@@ -78,7 +249,7 @@ class Player {
         this.originalHeight = 40;
         this.height = this.originalHeight;
         this.x = 100;
-        this.y = GROUND_Y - this.height;
+        this.y = BASE_GROUND_Y - this.height;
         this.vy = 0;
         this.vx = 0;
         this.jumpForce = -12;
@@ -122,29 +293,40 @@ class Player {
             this.grounded = false;
         }
 
-        // Gravity
         this.y += this.vy;
-        if (this.y + this.height < GROUND_Y) {
-            this.vy += GRAVITY;
-            this.grounded = false;
+        let currentGroundY = terrain ? terrain.getGroundY(this.x + this.width / 2) : BASE_GROUND_Y;
+
+        if (this.y + this.height <= currentGroundY) {
+            if (this.grounded && this.vy >= 0 && currentGroundY - (this.y + this.height) < 15 && currentGroundY < GAME_HEIGHT) {
+                this.grounded = true;
+                this.vy = 0;
+                this.y = currentGroundY - this.height;
+            } else {
+                this.vy += GRAVITY;
+                this.grounded = false;
+            }
         } else {
             this.vy = 0;
             this.grounded = true;
-            this.y = GROUND_Y - this.height;
+            this.y = currentGroundY - this.height;
+        }
+
+        if (this.y > GAME_HEIGHT + 50) {
+            hp = 0;
         }
 
         // Duck
         if (keys.ArrowDown) {
             this.height = this.originalHeight / 2;
             if (this.grounded) {
-                this.y = GROUND_Y - this.height;
+                this.y = currentGroundY - this.height;
             } else {
                 this.vy += GRAVITY * 1.5;
             }
         } else {
             this.height = this.originalHeight;
             if (this.grounded) {
-                this.y = GROUND_Y - this.height;
+                this.y = currentGroundY - this.height;
             }
         }
     }
@@ -179,8 +361,9 @@ class Player {
                 // Move up in the air at the peak of the bounce
                 yOffset = -bounce * 8;
 
-                // Rotate left and right periodically
-                angle = Math.sin(cycle) * 0.15;
+                // Rotate left and right periodically + slope
+                let slopeAngle = terrain ? terrain.getAngleAt(this.x + this.width / 2) : 0;
+                angle = slopeAngle + Math.sin(cycle) * 0.15;
 
                 // Compress when hitting the ground
                 if (bounce < 0.3) {
@@ -227,16 +410,18 @@ class Obstacle {
         this.passed = false;
 
         if (type === 'low') {
-            this.y = GROUND_Y - this.height;
+            this.yOffset = 0;
             this.color = '#ef4444'; // Red
         } else {
-            this.y = GROUND_Y - this.height - 40; // Hovering
+            this.yOffset = 40; // Hovering
             this.color = '#f59e0b'; // Amber
         }
     }
 
     update() {
         this.x -= gameSpeed;
+        let gy = this.type === 'low' ? (terrain ? terrain.getGroundY(this.x + this.width / 2) : BASE_GROUND_Y) : (terrain ? terrain.getAirY(this.x + this.width / 2) : BASE_GROUND_Y);
+        this.y = gy - this.height - this.yOffset;
     }
 
     draw() {
@@ -262,7 +447,7 @@ class Obstacle {
 class Item {
     constructor() {
         this.x = GAME_WIDTH;
-        this.y = GROUND_Y - 30 - Math.random() * 60; // Random height
+        this.yOffset = 30 + Math.random() * 60; // 30 to 90px above ground
         this.width = 20;
         this.height = 20;
         this.color = '#eab308'; // Yellow/Gold
@@ -273,6 +458,7 @@ class Item {
     update() {
         this.x -= gameSpeed;
         this.spin += 0.1;
+        this.y = (terrain ? terrain.getAirY(this.x + this.width / 2) : BASE_GROUND_Y) - this.height - this.yOffset;
     }
 
     draw() {
@@ -298,6 +484,7 @@ class Item {
 }
 
 let player;
+let terrain;
 let obstacles = [];
 let items = [];
 let spawnTimer = 0;
@@ -313,6 +500,7 @@ function startGame() {
     distanceTraveled = 0;
 
     player = new Player();
+    terrain = new TerrainManager();
     obstacles = [];
     items = [];
     spawnTimer = 0;
@@ -377,6 +565,7 @@ function update(deltaTime) {
     }
     gameSpeed = Math.min(MAX_SPEED, gameSpeed);
 
+    if (terrain) terrain.update(gameSpeed);
     player.update(deltaTime);
 
     // Entity Spawning
@@ -450,18 +639,13 @@ function draw() {
     for (let x = GAME_WIDTH + offset; x > 0; x -= 45) {
         ctx.beginPath();
         ctx.moveTo(x - offset, 0);
-        ctx.lineTo(x - offset, GROUND_Y);
+        let gy = terrain ? terrain.getGroundY(x - offset) : GAME_HEIGHT;
+        if (gy > GAME_HEIGHT) gy = GAME_HEIGHT;
+        ctx.lineTo(x - offset, gy);
         ctx.stroke();
     }
 
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(0, GROUND_Y, GAME_WIDTH, 50);
-    ctx.fillStyle = '#38bdf8';
-
-    ctx.shadowColor = '#38bdf8';
-    ctx.shadowBlur = 15;
-    ctx.fillRect(0, GROUND_Y, GAME_WIDTH, 2);
-    ctx.shadowBlur = 0;
+    if (terrain) terrain.draw(ctx);
 
     // Draw Entities
     for (let item of items) {
