@@ -69,6 +69,9 @@ function resizeCanvas() {
 resizeCanvas();
 
 // --- Entities ---
+const catImg = new Image();
+catImg.src = 'images/cat.png';
+
 class Player {
     constructor() {
         this.width = 40;
@@ -126,42 +129,17 @@ class Player {
             return; // Flicker effect
         }
 
-        ctx.fillStyle = this.color;
-
-        ctx.beginPath();
-        ctx.roundRect(this.x, this.y, this.width, this.height, 8);
-        ctx.fill();
-
-        if (this.height > 30) {
-            ctx.beginPath();
-            ctx.moveTo(this.x + 5, this.y + 10);
-            ctx.lineTo(this.x + 10, this.y - 10);
-            ctx.lineTo(this.x + 20, this.y);
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.moveTo(this.x + this.width - 5, this.y + 10);
-            ctx.lineTo(this.x + this.width - 10, this.y - 10);
-            ctx.lineTo(this.x + this.width - 20, this.y);
-            ctx.fill();
-        }
-
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(this.x + 25, this.y + 15, 4, 0, Math.PI * 2);
-        ctx.arc(this.x + 35, this.y + 15, 4, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = '#1e293b';
-        ctx.beginPath();
-        ctx.arc(this.x + 27, this.y + 15, 2, 0, Math.PI * 2);
-        ctx.arc(this.x + 37, this.y + 15, 2, 0, Math.PI * 2);
-        ctx.fill();
-
         ctx.shadowColor = 'rgba(56, 189, 248, 0.5)';
         ctx.shadowBlur = 10;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
+
+        if (catImg.complete) {
+            ctx.drawImage(catImg, this.x, this.y, this.width, this.height);
+        } else {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
     }
 }
 
