@@ -80,6 +80,7 @@ class Player {
         this.x = 100;
         this.y = GROUND_Y - this.height;
         this.vy = 0;
+        this.vx = 0;
         this.jumpForce = -12;
         this.grounded = false;
         this.color = '#0ea5e9';
@@ -89,6 +90,30 @@ class Player {
     update(deltaTime) {
         if (this.invulnerableTime > 0) {
             this.invulnerableTime -= deltaTime;
+        }
+
+        // Horizontal Movement
+        if (keys.ArrowRight) {
+            this.vx = Math.min(6, this.vx + 0.5);
+        } else if (keys.ArrowLeft) {
+            this.vx = Math.max(-6, this.vx - 0.5);
+        } else {
+            if (this.vx > 0) {
+                this.vx = Math.max(0, this.vx - 0.3);
+            } else if (this.vx < 0) {
+                this.vx = Math.min(0, this.vx + 0.3);
+            }
+        }
+
+        this.x += this.vx;
+
+        // Screen Boundaries
+        if (this.x < 10) {
+            this.x = 10;
+            this.vx = 0;
+        } else if (this.x > GAME_WIDTH - this.width - 10) {
+            this.x = GAME_WIDTH - this.width - 10;
+            this.vx = 0;
         }
 
         // Jump
@@ -295,21 +320,12 @@ function gameLoop(timestamp) {
 }
 
 function update(deltaTime) {
-    // Speed Control
-    if (keys.ArrowRight) {
-        gameSpeed = Math.min(MAX_SPEED, gameSpeed + 0.1);
-    } else if (keys.ArrowLeft) {
-        gameSpeed = Math.max(MIN_SPEED, gameSpeed - 0.2);
-    } else {
-        if (gameSpeed > INITIAL_SPEED + distanceTraveled * 0.0001) {
-            gameSpeed -= 0.05;
-        } else if (gameSpeed < INITIAL_SPEED + distanceTraveled * 0.0001) {
-            gameSpeed += 0.05;
-        }
+    // Game speed smoothly increases as distance is traveled
+    const targetSpeed = INITIAL_SPEED + distanceTraveled * 0.0001;
+    if (gameSpeed < targetSpeed) {
+        gameSpeed += 0.02;
     }
-
-    // Base difficulty increment
-    const scaledInitialSpeed = INITIAL_SPEED + distanceTraveled * 0.0001;
+    gameSpeed = Math.min(MAX_SPEED, gameSpeed);
 
     player.update(deltaTime);
 
