@@ -217,6 +217,10 @@ const keys = {
 
 // Listeners
 window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && gameState !== GameState.PLAYING) {
+        startGame();
+        e.preventDefault();
+    }
     if (keys.hasOwnProperty(e.code)) {
         keys[e.code] = true;
         e.preventDefault();
@@ -242,6 +246,15 @@ resizeCanvas();
 // --- Entities ---
 const catImg = new Image();
 catImg.src = 'images/cat.png';
+
+const obsImages = {
+    dog: new Image(),
+    trash_can: new Image(),
+    crow: new Image()
+};
+obsImages.dog.src = 'images/dog.png';
+obsImages.trash_can.src = 'images/trush_can.png';
+obsImages.crow.src = 'images/crow.png';
 
 class Player {
     constructor() {
@@ -405,16 +418,26 @@ class Obstacle {
     constructor(type) {
         this.x = GAME_WIDTH;
         this.type = type; // 'low' (jump over) or 'high' (duck under)
-        this.width = 30;
-        this.height = 40;
         this.passed = false;
+        this.spawnTime = performance.now(); // For animation purposes
 
         if (type === 'low') {
             this.yOffset = 0;
-            this.color = '#ef4444'; // Red
+            const lowTypes = ['dog', 'trash_can'];
+            this.subType = lowTypes[Math.floor(Math.random() * lowTypes.length)];
+
+            if (this.subType === 'dog') {
+                this.width = 60; // Increased size from 40
+                this.height = 45; // Increased size from 30
+            } else { // trash_can
+                this.width = 45; // Increased size from 30
+                this.height = 60; // Increased size from 40
+            }
         } else {
             this.yOffset = 40; // Hovering
-            this.color = '#f59e0b'; // Amber
+            this.subType = 'crow';
+            this.width = 60; // Increased size from 40
+            this.height = 45; // Increased size from 30
         }
     }
 
@@ -425,22 +448,59 @@ class Obstacle {
     }
 
     draw() {
-        ctx.fillStyle = this.color;
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 15;
+        let img = obsImages[this.subType];
+        if (img && img.complete) {
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 5;
 
-        if (this.type === 'low') {
-            // e.g. Trash can / Box
-            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.save();
+            ctx.translate(this.x + this.width / 2, this.y + this.height);
+
+            let angle = 0;
+            let scaleX = 1;
+            let scaleY = 1;
+            let drawYOffset = 0;
+
+            const timeElapsed = performance.now() - this.spawnTime;
+            const animCycle = timeElapsed * 0.01;
+
+            if (this.subType === 'dog') {
+                // Running animation for dog
+                let bounce = Math.abs(Math.sin(animCycle));
+                drawYOffset = -bounce * 6;
+                angle = Math.sin(animCycle) * 0.1;
+
+                if (bounce < 0.3) {
+                    let squish = 1 - (bounce / 0.3);
+                    scaleY = 1 - squish * 0.15;
+                    scaleX = 1 + squish * 0.1;
+                }
+            } else if (this.subType === 'crow') {
+                // Flying animation for crow
+                let flap = Math.sin(animCycle * 1.5);
+                drawYOffset = flap * 5;
+                angle = Math.cos(animCycle * 1.5) * 0.1;
+
+                // Simulate wing flapping by scaling Y slightly and X
+                scaleY = 1 + flap * 0.1;
+                scaleX = 1 - flap * 0.05;
+            } else if (this.subType === 'trash_can') {
+                // Static but maybe a slight wobble on terrain angle
+                angle = terrain ? terrain.getAngleAt(this.x + this.width / 2) : 0;
+            }
+
+            ctx.translate(0, drawYOffset);
+            ctx.rotate(angle);
+            ctx.scale(scaleX, scaleY);
+
+            ctx.drawImage(img, -this.width / 2, -this.height, this.width, this.height);
+
+            ctx.restore();
+            ctx.shadowBlur = 0;
         } else {
-            // e.g. Crow / Hanging sign
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y + this.height / 2);
-            ctx.lineTo(this.x + this.width, this.y);
-            ctx.lineTo(this.x + this.width, this.y + this.height);
-            ctx.fill();
+            ctx.fillStyle = this.type === 'low' ? '#ef4444' : '#f59e0b';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
         }
-        ctx.shadowBlur = 0;
     }
 }
 
