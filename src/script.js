@@ -160,7 +160,57 @@ class Player {
         ctx.shadowOffsetY = 0;
 
         if (catImg.complete) {
-            ctx.drawImage(catImg, this.x, this.y, this.width, this.height);
+            ctx.save();
+            // Anchor at the bottom center of the player
+            ctx.translate(this.x + this.width / 2, this.y + this.height);
+
+            let angle = 0;
+            let scaleX = 1;
+            let scaleY = 1;
+            let yOffset = 0;
+
+            if (this.grounded && this.height === this.originalHeight) {
+                // Running animation
+                const cycle = distanceTraveled * 0.08;
+
+                // Bobbing up and down
+                const bounce = Math.abs(Math.sin(cycle));
+
+                // Move up in the air at the peak of the bounce
+                yOffset = -bounce * 8;
+
+                // Rotate left and right periodically
+                angle = Math.sin(cycle) * 0.15;
+
+                // Compress when hitting the ground
+                if (bounce < 0.3) {
+                    const squish = 1 - (bounce / 0.3); // 1 at bounce=0, 0 at bounce=0.3
+                    scaleY = 1 - squish * 0.2; // Max 0.8 scaleY
+                    scaleX = 1 + squish * 0.1; // Max 1.1 scaleX
+                } else {
+                    // Small stretch when in the air
+                    scaleY = 1 + bounce * 0.05;
+                    scaleX = 1 - bounce * 0.05;
+                }
+            } else if (!this.grounded) {
+                // Jumping animation
+                angle = Math.max(-0.5, Math.min(0.5, this.vy * 0.03)); // Tilt based on velocity
+                scaleY = 1.1;
+                scaleX = 0.9;
+            } else if (this.height < this.originalHeight) {
+                // Ducking animation
+                angle = 0.3; // Lean forward
+                yOffset = 5; // Sink slightly
+                scaleY = 0.8;
+                scaleX = 1.1;
+            }
+
+            ctx.translate(0, yOffset);
+            ctx.rotate(angle);
+            ctx.scale(scaleX, scaleY);
+
+            ctx.drawImage(catImg, -this.width / 2, -this.height, this.width, this.height);
+            ctx.restore();
         } else {
             ctx.fillStyle = this.color;
             ctx.fillRect(this.x, this.y, this.width, this.height);
