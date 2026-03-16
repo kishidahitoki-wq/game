@@ -1,0 +1,19 @@
+name: CI Workflow
+
+# どのタイミングで実行するか（ここではメインブランチへのプッシュ時）
+on:
+  push:
+    branches: [ "feature/try-github-actions" ]
+
+jobs:
+  build:
+    # 実行するOS環境
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. リポジトリのコードをチェックアウト（取得）
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 依存関係のインストールとテストの実行
+      - run: echo "Running tests..."
