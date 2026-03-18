@@ -1,0 +1,16 @@
+name: CI Workflow
+
+# どのタイミングで実行するか（ここではメインブランチへのプッシュ時）
+on:
+  push:
+    branches: [ "feature/try-github-actions" ]
+  pull_request:
+
+jobs:
+  test:
+    # 実行するOS環境
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 該当ブランチ
+        run: echo "This is the main branch"
