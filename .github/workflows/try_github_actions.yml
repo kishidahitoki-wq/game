@@ -3,9 +3,9 @@ name: CI Workflow
 # どのタイミングで実行するか（ここではメインブランチへのプッシュ時）
 on:
   push:
-    branches: [ "feature/try-github-actions" ]
+    branches: [ "feature/try" ]
   pull_request:
-    branches: [ "feature/try-github-actions" ]
+    branches: [ "feature/try" ]
 
 jobs:
   test:
@@ -14,4 +14,4 @@ jobs:
 
     steps:
       - name: 該当ブランチ
-        run: echo "This is the feature/try-github-actions branch"
+        run: echo "This is the feature/try branch"
