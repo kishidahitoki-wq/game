@@ -5,8 +5,7 @@ on:
   push:
     branches: [ "feature/try" ]
   pull_request:
-    branches: [ "feature/try" ]
-
+  
 jobs:
   test:
     # 実行するOS環境
@@ -14,4 +13,5 @@ jobs:
 
     steps:
       - name: 該当ブランチ
+        run : echo "PR出した側"
         run: echo "This is the feature/try branch"
