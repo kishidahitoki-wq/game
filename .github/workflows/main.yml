@@ -5,6 +5,7 @@ on:
   push:
     branches: [ "feature/try-github-actions" ]
   pull_request:
+    branches: [ "feature/try" ]
 
 jobs:
   test:
