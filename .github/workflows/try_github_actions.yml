@@ -5,7 +5,6 @@ on:
   push:
     branches: [ "feature/try-github-actions" ]
   pull_request:
-    branches: [ "feature/try-github-actions" ]
 
 jobs:
   test:
@@ -13,5 +12,5 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 該当ブランチ
+      - name: PR出された側
         run: echo "This is the feature/try-github-actions branch"
